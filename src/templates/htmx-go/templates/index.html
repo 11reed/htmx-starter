@@ -10,13 +10,15 @@
 <body class="bg-gray-100">
     <div class="container mx-auto p-4">
         <h1 class="text-3xl font-bold">Posts</h1>
+        {% if posts %}
         <ul>
             {% for post in posts %}
                 <li>{{ post.title }}</li>
-            {% else %}
-                <li>No posts yet</li>
             {% endfor %}
         </ul>
+        {% else %}
+        <p>No posts yet</p>
+        {% endif %}
         <form hx-post="/create_post" hx-swap="outerHTML">
             <input type="text" name="title" placeholder="Title">
             <textarea name="content" placeholder="Content"></textarea>
@@ -25,3 +27,4 @@
     </div>
 </body>
 </html>
+
