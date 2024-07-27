@@ -30,6 +30,7 @@ async fn home(
     Extension(tera): Extension<Tera>,
     Extension(db): Extension<Arc<Database>>,
 ) -> Result<Html<String>, axum::http::StatusCode> {
+    // let conn = db.connect().unwrap();
     let conn = match db.connect() {
         Ok(conn) => conn,
         Err(err) => {
@@ -38,6 +39,7 @@ async fn home(
         }
     };
 
+    // let mut stmt = conn.prepare("SELECT id, title, content FROM posts").await.unwrap();
     let mut stmt = match conn.prepare("SELECT id, title, content FROM posts").await {
         Ok(stmt) => stmt,
         Err(err) => {
@@ -46,6 +48,7 @@ async fn home(
         }
     };
 
+    // let mut rows = stmt.query(()).await.unwrap();
     let mut rows = match stmt.query(()).await {
         Ok(rows) => rows,
         Err(err) => {
@@ -56,30 +59,11 @@ async fn home(
 
     let mut posts = Vec::new();
     while let Ok(Some(row)) = rows.next().await {
-        let post = Post {
-            id: match row.get(0) {
-                Ok(id) => id,
-                Err(err) => {
-                    eprintln!("Failed to get id: {:?}", err);
-                    return Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR);
-                }
-            },
-            title: match row.get(1) {
-                Ok(title) => title,
-                Err(err) => {
-                    eprintln!("Failed to get title: {:?}", err);
-                    return Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR);
-                }
-            },
-            content: match row.get(2) {
-                Ok(content) => content,
-                Err(err) => {
-                    eprintln!("Failed to get content: {:?}", err);
-                    return Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR);
-                }
-            },
-        };
-        posts.push(post);
+        posts.push(Post {
+            id: row.get(0).unwrap(),
+            title: row.get(1).unwrap(),
+            content: row.get(2).unwrap(),
+        });
     }
 
     let mut context = tera::Context::new();
@@ -92,6 +76,12 @@ async fn home(
             Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+
+    /*
+    tera.render("index.html", &context)
+        .map(Html)
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)
+    */
 }
 
 async fn create_post(
@@ -172,18 +162,14 @@ async fn main() {
 
     create_table_if_not_exists(&db.connect().unwrap()).await;
 
-    println!("Current directory: {:?}", std::env::current_dir().unwrap());
-
-    let tera_path = "templates/**/*";
-    println!("Tera templates path: {}", tera_path);
-    let tera = Tera::new(tera_path).unwrap();
-
+    let tera = Tera::new("templates/**/*").unwrap();
     let serve_dir = ServeDir::new("static");
 
     tokio::spawn(keep_alive(db.clone()));
 
     let app = Router::new()
         .route("/", get(home))
+        // .route("/index.html", get(home))
         .route("/create_post", post(create_post))
         .layer(Extension(tera))
         .layer(Extension(db))
