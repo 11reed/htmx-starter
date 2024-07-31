@@ -11,11 +11,14 @@ dotenv.config();
 const app = express();
 const port = 3000;
 
+// Configure Nunjucks
 nunjucks.configure(join(__dirname, '../templates'), {
   autoescape: true,
-  express: app
+  express: app,
+  watch: true
 });
 
+// Database setup
 const turso = createClient({
   url: process.env.LIBSQL_URL as string,
   authToken: process.env.LIBSQL_AUTH_TOKEN as string,
@@ -28,8 +31,10 @@ interface Post {
 }
 
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use('/static', express.static(join(__dirname, 'static')));
+app.use('/static', express.static(join(__dirname, '../static')));
+app.use('/css', express.static(join(__dirname, '../src/css')));
 
+// Route handlers
 app.get('/', async (req, res) => {
   try {
     const result = await turso.execute('SELECT id, title, content FROM posts');
@@ -68,6 +73,7 @@ app.post('/create_post', async (req, res) => {
   }
 });
 
+// Ensure the posts table exists
 async function createTableIfNotExists() {
   await turso.execute(`
     CREATE TABLE IF NOT EXISTS posts (
@@ -78,18 +84,20 @@ async function createTableIfNotExists() {
   `);
 }
 
+// Keep the connection alive
 async function keepAlive() {
   const timeout = new Timeout();
   try {
     while (true) {
       await turso.execute('SELECT 1');
-      await timeout.set(300000);
+      await timeout.set(300000); // Ping every 5 minutes
     }
   } catch (err) {
     console.error('Failed to keep connection alive:', err);
   }
 }
 
+// Start the server
 (async () => {
   await createTableIfNotExists();
   keepAlive();
@@ -98,3 +106,4 @@ async function keepAlive() {
     console.log(`Server is listening on http://localhost:${port}`);
   });
 })();
+
