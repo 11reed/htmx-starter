@@ -188,8 +188,8 @@ async fn main() {
         .route("/create_post", post(create_post))
         .layer(Extension(tera))
         .layer(Extension(db))
-        .nest_service("/static", serve_dir)
-        .nest_service("/css", serve_css);
+        .nest_service("/css", serve_static)
+        .nest_service("/static", serve_dir);
 
     let listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
     println!("Listening on {}", listener.local_addr().unwrap());
